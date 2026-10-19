@@ -33,3 +33,9 @@ cp .env.example .env
 - `APP_NAME`
 - `APP_VERSION`
 - `OPENAI_API_KEY`
+
+## Run FastApi Server 
+
+```bash
+uvicorn main:app --reload --host 0.0.0.0 --port
+```
