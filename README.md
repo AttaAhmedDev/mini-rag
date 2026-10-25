@@ -16,13 +16,15 @@ conda activate mini-rag
 
 ## Install required packages
 
+From the `src` directory:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ## Environment
 
-Copy `.env.example` to `.env` and set your OpenAI API key:
+Copy `.env.example` to `.env` inside `src`:
 
 ```bash
 cp .env.example .env
@@ -33,9 +35,21 @@ cp .env.example .env
 - `APP_NAME`
 - `APP_VERSION`
 - `OPENAI_API_KEY`
+- `FILE_TYPES` — JSON list of allowed MIME types, for example `["text/plain","application/pdf"]`
+- `FILE_MAX_SIZE` — maximum upload size in megabytes
+- `FILE_CHUNK_SIZE` — number of bytes read from the upload at a time
 
-## Run FastApi Server 
+## Run the API
+
+From the `src` directory:
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+Interactive docs are at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+
+## Endpoints
+
+- `GET /api/v1/` — returns the app name and version from settings.
+- `POST /api/v1/data/upload/{project_id}` — accepts a multipart file in the `file` field. Plain text and PDF files within `FILE_MAX_SIZE` are stored under `src/assets/files/{project_id}/`. A successful response includes the stored file id.
