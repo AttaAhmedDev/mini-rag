@@ -1,9 +1,11 @@
 from fastapi import FastAPI,APIRouter ,Depends,UploadFile ,status
 from fastapi.responses import JSONResponse
 from helper.config import get_settings,Settings
-from controllers import DataController,ProjectController
+from controllers import DataController,ProjectController,ProcessController
 import os , aiofiles ,logging
 from models import ResponseEnums
+from .schemes import ProcessRequest
+
 data_router = APIRouter(
     prefix="/api/v1/data",
     tags=["api_v1","data"]
@@ -51,3 +53,25 @@ async def upload_data(project_id:str,file:UploadFile,settings:Settings=Depends(g
                 "message":ResponseEnums.FILE_UPLOAD_FAILED.value
             }
         )
+        
+@data_router.post("/process/{project_id}")
+async def process_data(project_id:str,request:ProcessRequest):
+    
+    file=request.file_id
+    chunk_size=request.chunk_size
+    overlap_size=request.overlap_size
+    
+    process_controller = ProcessController(project_id=project_id)
+    file_content= process_controller.get_file_documents(file_id=file)
+    
+    file_chunks= process_controller.get_file_chunks(file_content=file_content,file_id=file,chunk_size=chunk_size,overlap_size=overlap_size)
+    
+    if file_chunks is None or len(file_chunks) == 0:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "message":ResponseEnums.PROCESS_FILE_FAILED.value
+                }
+        )
+    
+    return file_chunks

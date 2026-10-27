@@ -5,3 +5,5 @@ class ResponseEnums(Enum):
     FILE_TYPE_NOT_SUPPORTED = "File type not supported"
     FILE_UPLOAD_SUCCESS = "File uploaded successfully"
     FILE_UPLOAD_FAILED = "File upload failed"
+    PROCESS_FILE_SUCCESS = "File processed successfully"
+    PROCESS_FILE_FAILED = "File processing failed"
