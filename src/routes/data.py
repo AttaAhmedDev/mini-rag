@@ -1,10 +1,13 @@
-from fastapi import FastAPI,APIRouter ,Depends,UploadFile ,status
+from fastapi import FastAPI,APIRouter ,Depends,UploadFile ,status,Request
 from fastapi.responses import JSONResponse
 from helper.config import get_settings,Settings
 from controllers import DataController,ProjectController,ProcessController
 import os , aiofiles ,logging
 from models import ResponseEnums
 from .schemes import ProcessRequest
+from models.ProjectModel import ProjectModel
+from models.ChunkModel import DataChunk
+from models.ChunkModel import ChunkModel
 
 data_router = APIRouter(
     prefix="/api/v1/data",
@@ -14,7 +17,10 @@ data_router = APIRouter(
 logger = logging.getLogger('uvicorn.error')
 
 @data_router.post("/upload/{project_id}")
-async def upload_data(project_id:str,file:UploadFile,settings:Settings=Depends(get_settings)):
+async def upload_data(request:Request,project_id:str,file:UploadFile,settings:Settings=Depends(get_settings)):
+    
+    project_model = ProjectModel(db_client=request.app.database_name)
+    project = await project_model.get_or_create_project(project_id=project_id)
     
     data_controller = DataController()
     
@@ -41,7 +47,8 @@ async def upload_data(project_id:str,file:UploadFile,settings:Settings=Depends(g
             status_code=status.HTTP_200_OK,
             content={
                 "message":ResponseEnums.FILE_UPLOAD_SUCCESS.value,
-                "file id":file_id
+                "file id":file_id,
+                "project_id":str(project.id) #convert the ObjectId to a string
             }
         )
     except Exception as e:
@@ -55,12 +62,16 @@ async def upload_data(project_id:str,file:UploadFile,settings:Settings=Depends(g
         )
         
 @data_router.post("/process/{project_id}")
-async def process_data(project_id:str,request:ProcessRequest):
+async def process_data(request:Request,project_id:str,data:ProcessRequest):
     
-    file=request.file_id
-    chunk_size=request.chunk_size
-    overlap_size=request.overlap_size
+    file=data.file_id
+    chunk_size=data.chunk_size
+    overlap_size=data.overlap_size
     
+    project_model = ProjectModel(db_client=request.app.database_name)
+    
+    project = await project_model.get_or_create_project(project_id=project_id)
+
     process_controller = ProcessController(project_id=project_id)
     file_content= process_controller.get_file_documents(file_id=file)
     
@@ -74,4 +85,33 @@ async def process_data(project_id:str,request:ProcessRequest):
                 }
         )
     
-    return file_chunks
+    chunk_records = [
+        DataChunk(
+            chunk_text=chunk.page_content,
+            chunk_metadata=chunk.metadata,
+            chunk_order=index+1,
+            chunk_project_id=project.id
+        )
+        for index,chunk in enumerate(file_chunks)
+    ]
+    
+    chunk_model = ChunkModel(db_client=request.app.database_name)
+    
+    return await chunk_model.insert_chunks(chunks=chunk_records)
+    # JSONResponse is a response object that returns a JSON response,HTTPException is a response object that returns a HTTP exception, i used JSONResponse for control the response status code and content
+    if not result["success"]:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "message":ResponseEnums.PROCESS_FILE_FAILED.value,
+                "error":result["error"],
+                "inserted_count":result["inserted_count"]
+            })
+    
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "message":ResponseEnums.PROCESS_FILE_SUCCESS.value,
+            "inserted_count":result["inserted_count"]
+        }
+    )

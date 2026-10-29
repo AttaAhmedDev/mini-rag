@@ -1,0 +1,17 @@
+services:
+  mongodb:
+    image: mongo:9.0-resolute
+    container_name: mongodb
+    ports:
+      - "127.0.0.1:27007:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - backend
+    restart: always
+
+networks:
+  backend:
+
+volumes:
+  mongodb_data:
