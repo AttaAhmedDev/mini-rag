@@ -22,6 +22,18 @@ From the `src` directory:
 pip install -r requirements.txt
 ```
 
+## MongoDB
+
+From the `docker` directory, copy the example env file and set the root username and password:
+
+```bash
+cd docker
+cp .env.example .env
+docker compose up -d
+```
+
+Those credentials are created only the first time the data volume is empty. MongoDB listens on `127.0.0.1:27007`.
+
 ## Environment
 
 Copy `.env.example` to `.env` inside `src`:
@@ -41,22 +53,12 @@ cp .env.example .env
 - `MONGO_URI` — MongoDB connection string
 - `MONGO_DB_NAME` — database name, for example `mini-rag`
 
-`.env.example` does not include the MongoDB keys. Add them after copying it. When the API runs on the host and MongoDB is published by Docker Compose, use:
+`.env.example` does not include the MongoDB keys. Add them after copying it. The root user lives in the `admin` database, so the URI needs `authSource=admin`. Use the same username and password as `docker/.env`:
 
 ```bash
-MONGO_URI=mongodb://127.0.0.1:27007/mini-rag
+MONGO_URI=mongodb://<username>:<password>@127.0.0.1:27007/mini-rag?authSource=admin
 MONGO_DB_NAME=mini-rag
 ```
-
-## MongoDB
-
-From the repository root:
-
-```bash
-docker compose -f docker/docker-compose.yml up -d
-```
-
-MongoDB listens on `127.0.0.1:27007`.
 
 ## Run the API
 
@@ -71,5 +73,16 @@ Interactive docs are at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 ## Endpoints
 
 - `GET /api/v1/` — returns the app name and version from settings.
-- `POST /api/v1/data/upload/{project_id}` — accepts a multipart file in the `file` field. Plain text and PDF files within `FILE_MAX_SIZE` are stored under `src/assets/files/{project_id}/`. The project is created in MongoDB when it does not already exist. A successful response includes the stored file id and the project's MongoDB id.
-- `POST /api/v1/data/process/{project_id}` — JSON body with `file_id`, and optional `chunk_size` (default 100) and `overlap_size` (default 20). Loads the uploaded file, splits it into chunks, and inserts those chunks into MongoDB. A successful response includes `success` and `inserted_count`.
+- `POST /api/v1/data/upload/{project_id}` — accepts a multipart file in the `file` field. Plain text and PDF files within `FILE_MAX_SIZE` are stored under `src/assets/files/{project_id}/`. The project is created in the `projects` collection when it does not already exist. A successful response includes `file id` (the stored name, including its random prefix) and `project_id` (the project's MongoDB id).
+- `POST /api/v1/data/process/{project_id}` — JSON body:
+
+```json
+{
+  "file_id": "stored-file-name.txt",
+  "chunk_size": 100,
+  "overlap_size": 20,
+  "do_reset": false
+}
+```
+
+`file_id` must match the `file id` returned by upload. `chunk_size` defaults to 100 and `overlap_size` defaults to 20. The file is loaded, split into chunks, and inserted into the `chunks` collection. When `do_reset` is `true`, existing chunks for that project are deleted before the new chunks are inserted. A successful response includes `message` and `inserted_count`. A missing or unknown `file_id` returns `404`.

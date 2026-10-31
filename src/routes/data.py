@@ -19,7 +19,7 @@ logger = logging.getLogger('uvicorn.error')
 @data_router.post("/upload/{project_id}")
 async def upload_data(request:Request,project_id:str,file:UploadFile,settings:Settings=Depends(get_settings)):
     
-    project_model = ProjectModel(db_client=request.app.database_name)
+    project_model = await ProjectModel.create_instance(db_client=request.app.database_name)
     project = await project_model.get_or_create_project(project_id=project_id)
     
     data_controller = DataController()
@@ -67,13 +67,22 @@ async def process_data(request:Request,project_id:str,data:ProcessRequest):
     file=data.file_id
     chunk_size=data.chunk_size
     overlap_size=data.overlap_size
+    do_reset=data.do_reset
     
-    project_model = ProjectModel(db_client=request.app.database_name)
+    project_model = await ProjectModel.create_instance(db_client=request.app.database_name)
     
     project = await project_model.get_or_create_project(project_id=project_id)
 
     process_controller = ProcessController(project_id=project_id)
     file_content= process_controller.get_file_documents(file_id=file)
+    
+    if file_content is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={
+                "message":ResponseEnums.FILE_NOT_FOUND.value
+                }
+        )
     
     file_chunks= process_controller.get_file_chunks(file_content=file_content,file_id=file,chunk_size=chunk_size,overlap_size=overlap_size)
     
@@ -95,9 +104,12 @@ async def process_data(request:Request,project_id:str,data:ProcessRequest):
         for index,chunk in enumerate(file_chunks)
     ]
     
-    chunk_model = ChunkModel(db_client=request.app.database_name)
+    chunk_model = await ChunkModel.create_instance(db_client=request.app.database_name)
+    # put delete here as we want first prepare data that chunking process then insert the new data , do for prevent lose old data 
+    if do_reset:
+        _ = await chunk_model.delete_chunks_by_project_id(project_id=project.id)
     
-    return await chunk_model.insert_chunks(chunks=chunk_records)
+    result = await chunk_model.insert_chunks(chunks=chunk_records)
     # JSONResponse is a response object that returns a JSON response,HTTPException is a response object that returns a HTTP exception, i used JSONResponse for control the response status code and content
     if not result["success"]:
         return JSONResponse(

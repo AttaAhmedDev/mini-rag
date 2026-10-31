@@ -7,3 +7,6 @@ class ResponseEnums(Enum):
     FILE_UPLOAD_FAILED = "File upload failed"
     PROCESS_FILE_SUCCESS = "File processed successfully"
     PROCESS_FILE_FAILED = "File processing failed"
+    DELETE_CHUNKS_SUCCESS = "Chunks deleted successfully"
+    DELETE_CHUNKS_FAILED = "Chunks deletion failed"
+    FILE_NOT_FOUND = "File not found"
