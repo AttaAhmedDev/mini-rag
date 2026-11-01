@@ -73,7 +73,7 @@ Interactive docs are at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 ## Endpoints
 
 - `GET /api/v1/` — returns the app name and version from settings.
-- `POST /api/v1/data/upload/{project_id}` — accepts a multipart file in the `file` field. Plain text and PDF files within `FILE_MAX_SIZE` are stored under `src/assets/files/{project_id}/`. The project is created in the `projects` collection when it does not already exist. A successful response includes `file id` (the stored name, including its random prefix) and `project_id` (the project's MongoDB id).
+- `POST /api/v1/data/upload/{project_id}` — accepts a multipart file in the `file` field. Plain text and PDF files within `FILE_MAX_SIZE` are stored under `src/assets/files/{project_id}/` with a random prefix. The project is created in the `projects` collection when it does not already exist, and a record is inserted in the `assets` collection (`asset_name` is the stored filename, `asset_type` is `file`). A successful response includes `message` and `file_id`, the asset document's MongoDB id as a string.
 - `POST /api/v1/data/process/{project_id}` — JSON body:
 
 ```json
@@ -85,4 +85,4 @@ Interactive docs are at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 }
 ```
 
-`file_id` must match the `file id` returned by upload. `chunk_size` defaults to 100 and `overlap_size` defaults to 20. The file is loaded, split into chunks, and inserted into the `chunks` collection. When `do_reset` is `true`, existing chunks for that project are deleted before the new chunks are inserted. A successful response includes `message` and `inserted_count`. A missing or unknown `file_id` returns `404`.
+`file_id` is the stored filename under `src/assets/files/{project_id}/`, not the asset MongoDB id returned by upload. `chunk_size` defaults to 100 and `overlap_size` defaults to 20. The file is loaded, split into chunks, and inserted into the `chunks` collection. When `do_reset` is `true`, existing chunks for that project are deleted before the new chunks are inserted. A successful response includes `message` and `inserted_count`. A missing file returns `404` with `"File not found"`.

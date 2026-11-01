@@ -3,10 +3,11 @@ from fastapi.responses import JSONResponse
 from helper.config import get_settings,Settings
 from controllers import DataController,ProjectController,ProcessController
 import os , aiofiles ,logging
-from models import ResponseEnums
+from models import ResponseEnums,AssetType
 from .schemes import ProcessRequest
 from models.ProjectModel import ProjectModel
-from models.ChunkModel import DataChunk
+from models.db_schemes import DataChunk,Asset
+from models.AssetModel import AssetModel
 from models.ChunkModel import ChunkModel
 
 data_router = APIRouter(
@@ -43,14 +44,6 @@ async def upload_data(request:Request,project_id:str,file:UploadFile,settings:Se
             while content := await file.read(settings.FILE_CHUNK_SIZE):
                 await f.write(content)
                 
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "message":ResponseEnums.FILE_UPLOAD_SUCCESS.value,
-                "file id":file_id,
-                "project_id":str(project.id) #convert the ObjectId to a string
-            }
-        )
     except Exception as e:
         #remove the file if the upload fails then store logger error
         logger.error(f"Error uploading file: {e}")
@@ -60,7 +53,24 @@ async def upload_data(request:Request,project_id:str,file:UploadFile,settings:Se
                 "message":ResponseEnums.FILE_UPLOAD_FAILED.value
             }
         )
-        
+    
+    asset_model = await AssetModel.create_instance(db_client=request.app.database_name)
+    
+    new_asset = await asset_model.create_asset(
+        Asset(
+            asset_project_id=project.id,
+            asset_type=AssetType.FILE.value,
+            asset_name=file_id,
+            asset_size=os.path.getsize(file_path)
+        ))
+    
+    return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "message":ResponseEnums.FILE_UPLOAD_SUCCESS.value,
+                "file_id": str(new_asset.id),
+            }
+    )
 @data_router.post("/process/{project_id}")
 async def process_data(request:Request,project_id:str,data:ProcessRequest):
     
