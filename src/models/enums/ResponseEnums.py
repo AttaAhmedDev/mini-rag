@@ -9,4 +9,6 @@ class ResponseEnums(Enum):
     PROCESS_FILE_FAILED = "File processing failed"
     DELETE_CHUNKS_SUCCESS = "Chunks deleted successfully"
     DELETE_CHUNKS_FAILED = "Chunks deletion failed"
-    FILE_NOT_FOUND = "File not found"
+    FILE_NOT_FOUND = "File not found with this ID"
+    NO_FILES_FOUND = "No files found with this project id"
+    NO_FILES_TO_PROCESS = "No files to process"
