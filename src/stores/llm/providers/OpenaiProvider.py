@@ -1,6 +1,7 @@
+from __future__ import annotations
 from openai import OpenAI
-from ...LLMInterface import LLMInterface
-from ...LLMEnums import LLMRole
+from ..LLMInterface import LLMInterface
+from ..LLMEnums import OpenaiEnums
 import logging
 
 #temprature is degree of creativity of model
@@ -18,7 +19,7 @@ class OpenaiProvider(LLMInterface):
         self.embedding_model_id = None
         self.embedding_size = None
         
-        self.client = OpenAI(api_key=self.api_key,api_url=self.api_url)
+        self.client = OpenAI(api_key=self.api_key, base_url=self.api_url or None)
         
         self.logger = logging.getLogger(__name__)
         
@@ -28,7 +29,7 @@ class OpenaiProvider(LLMInterface):
     def set_embedding_model(self,model_id:str,embedding_size:int):
         self.embedding_model_id = model_id
         self.embedding_size = embedding_size
-       
+        
     #process text to fit the model input requirements
     def process_text(self,text:str):
         return text[:self.default_input_max].strip()
@@ -48,7 +49,7 @@ class OpenaiProvider(LLMInterface):
         temperature = temperature if temperature else self.default_temperature
         
         chat_history.append(
-            self.construct_prompt(prompt=prompt,role=LLMRole.USER.value)
+            self.construct_prompt(prompt=prompt,role=OpenaiEnums.USER.value)
         )
         
         response = self.client.chat.completions.create(

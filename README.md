@@ -46,19 +46,31 @@ cp .env.example .env
 
 - `APP_NAME`
 - `APP_VERSION`
-- `OPENAI_API_KEY`
 - `FILE_TYPES` — JSON list of allowed MIME types, for example `["text/plain","application/pdf"]`
 - `FILE_MAX_SIZE` — maximum upload size in megabytes
 - `FILE_CHUNK_SIZE` — number of bytes read from the upload at a time
 - `MONGO_URI` — MongoDB connection string
 - `MONGO_DB_NAME` — database name, for example `mini-rag`
+- `GENERATION_BACKEND` — `OPENAI` or `COHERE`
+- `EMBEDDING_BACKEND` — `OPENAI` or `COHERE`
+- `OPENAI_API_KEY`
+- `COHERE_API_KEY`
+- `OPENAI_API_URL` — optional custom OpenAI host. Leave it empty to use the default API host
+- `GENERATION_MODEL_ID` — model used for text generation, for example `gpt-4o-mini`
+- `EMBEDDING_MODEL_ID` — model used for embeddings
+- `EMBEDDING_MODEL_SIZE` — length of the embedding vector
+- `DEFAULT_INPUT_MAX` — maximum characters sent to the model
+- `DEFAULT_GENERATION_MAX` — default maximum output tokens
+- `DEFAULT_TEMPERATURE` — generation temperature, for example `0.1`
 
-`.env.example` does not include the MongoDB keys. Add them after copying it. The root user lives in the `admin` database, so the URI needs `authSource=admin`. Use the same username and password as `docker/.env`:
+The root user lives in the `admin` database, so the URI needs `authSource=admin`. Use the same username and password as `docker/.env`:
 
 ```bash
 MONGO_URI=mongodb://<username>:<password>@127.0.0.1:27007/mini-rag?authSource=admin
 MONGO_DB_NAME=mini-rag
 ```
+
+On startup the API builds two clients from these settings. `GENERATION_BACKEND` chooses the client that generates text, and `EMBEDDING_BACKEND` chooses the client that creates embeddings. Each one can be OpenAI or Cohere.
 
 ## Run the API
 
