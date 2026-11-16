@@ -46,19 +46,38 @@ cp .env.example .env
 
 - `APP_NAME`
 - `APP_VERSION`
-- `OPENAI_API_KEY`
 - `FILE_TYPES` — JSON list of allowed MIME types, for example `["text/plain","application/pdf"]`
 - `FILE_MAX_SIZE` — maximum upload size in megabytes
 - `FILE_CHUNK_SIZE` — number of bytes read from the upload at a time
 - `MONGO_URI` — MongoDB connection string
 - `MONGO_DB_NAME` — database name, for example `mini-rag`
+- `GENERATION_BACKEND` — `OPENAI` or `COHERE`
+- `EMBEDDING_BACKEND` — `OPENAI` or `COHERE`
+- `OPENAI_API_KEY`
+- `COHERE_API_KEY`
+- `OPENAI_API_URL` — optional custom OpenAI host. Leave it empty to use the default API host
+- `GENERATION_MODEL_ID` — model used for text generation, for example `gpt-4o-mini`
+- `EMBEDDING_MODEL_ID` — model used for embeddings
+- `EMBEDDING_MODEL_SIZE` — length of the embedding vector
+- `DEFAULT_INPUT_MAX` — maximum characters sent to the model
+- `DEFAULT_GENERATION_MAX` — default maximum output tokens
+- `DEFAULT_TEMPERATURE` — generation temperature, for example `0.1`
+- `VECTOR_DB_TYPE` — vector store, currently `QDRANT`
+- `QDRANT_DB_PATH` — local folder for the Qdrant database, for example `qdrant_db`. The API creates this folder when it starts from `src`
+- `QDRANT_DISTANCE_METHOD` — `COSINE`, `DOT`, or `EUCLIDEAN`
+- `DEFAULT_LANGUAGE` — prompt language used when `PRIMARY_LANGUAGE` has no template folder
+- `PRIMARY_LANGUAGE` — prompt language, `en` or `ar`
 
-`.env.example` does not include the MongoDB keys. Add them after copying it. The root user lives in the `admin` database, so the URI needs `authSource=admin`. Use the same username and password as `docker/.env`:
+`GENERATION_MODEL_ID` must be a model from `GENERATION_BACKEND`, and `EMBEDDING_MODEL_ID` must be a model from `EMBEDDING_BACKEND`. `gpt-4o-mini` is an OpenAI chat model. A Cohere chat model is `command-r`. `embed-multilingual-light-v3.0` is a Cohere embedding model and belongs in `EMBEDDING_MODEL_ID`, with `EMBEDDING_MODEL_SIZE` set to that model's vector length (`384`).
+
+The root user lives in the `admin` database, so the URI needs `authSource=admin`. Use the same username and password as `docker/.env`:
 
 ```bash
 MONGO_URI=mongodb://<username>:<password>@127.0.0.1:27007/mini-rag?authSource=admin
 MONGO_DB_NAME=mini-rag
 ```
+
+On startup the API builds two clients from these settings. `GENERATION_BACKEND` chooses the client that generates text, and `EMBEDDING_BACKEND` chooses the client that creates embeddings. Each one can be OpenAI or Cohere.
 
 ## Run the API
 
@@ -86,3 +105,34 @@ Interactive docs are at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 ```
 
 `file_id` here is the stored filename (`asset_name`), not the asset MongoDB id returned by upload. Omit `file_id` to process every file asset in the project. `chunk_size` defaults to 100 and `overlap_size` defaults to 20. Each chunk is stored in the `chunks` collection with `chunk_project_id` and `chunk_asset_id`. When `do_reset` is `true`, existing chunks for that project are deleted only after at least one file has been split, and then the new chunks are inserted. That delete covers the whole project, including chunks from files that were not part of this request. A successful response includes `message`, `inserted_chunks`, and `files_processed`. An unknown filename returns `400` with `"File not found with this ID"`. A project with no file assets returns `404` with `"No files found with this project id"`. If no file can be loaded or split, the response is `400` with `"No files to process"` and existing chunks are left unchanged.
+
+## Vector index and answers
+
+Each project is stored in its own Qdrant collection named `collection_{project_id}`. Indexing embeds every Mongo chunk with `EMBEDDING_BACKEND` and writes the chunk text, vector, and metadata into that collection. Search embeds the query and returns the nearest chunks. The answer endpoint builds a prompt from those chunks and asks `GENERATION_BACKEND` to answer.
+
+Prompt text lives in `src/stores/llm/templates/locales/{language}/rag.py`. `PRIMARY_LANGUAGE` selects `en` or `ar`. A missing language file falls back to `DEFAULT_LANGUAGE`.
+
+- `POST /api/v1/nlp/index/push/{project_id}` — JSON body:
+
+```json
+{
+  "do_reset": false
+}
+```
+
+Reads the project's chunks from Mongo and inserts them into Qdrant. `do_reset` defaults to `false`. When it is `true`, the existing collection is deleted before the first batch is inserted. A project with no chunks returns `404` with `"No chunks to index"`. A Qdrant or embedding failure returns `500` with `"Failed to index into vector database"`. A successful response includes `message` and `inserted_items_count`.
+
+- `GET /api/v1/nlp/index/status/{project_id}` — returns `message` and `collection_info` for that project's Qdrant collection.
+
+- `POST /api/v1/nlp/index/search/{project_id}` — JSON body:
+
+```json
+{
+  "query": "what is this document about?",
+  "limit": 10
+}
+```
+
+`limit` defaults to 10. A successful response includes `message` and `results`, a list of `{ "text": "...", "score": 0.91 }`. A missing collection or an empty embedding returns `400` with `"Failed to search index"`.
+
+- `POST /api/v1/nlp/index/answer/{project_id}` — same JSON body as search. Retrieved chunks are filled into the document prompt, the question is filled into the footer prompt, and the system prompt is sent as chat history. A successful response includes `message`, `answer`, `full_prompt`, and `chat_history`. No retrieved chunks, or a failed generation call, returns `400` with `"Failed to answer RAG question"`.
