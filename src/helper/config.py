@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     DEFAULT_GENERATION_MAX:int 
     DEFAULT_TEMPERATURE:float 
     
+    #================= VECTOR DB CONFIGURATION =================
+    VECTOR_DB_TYPE:str
+    QDRANT_DB_PATH:str
+    QDRANT_DISTANCE_METHOD:str
+    
+    
+    #================= TEMPLATE CONFIGURATION =================
+    DEFAULT_LANGUAGE:str
+    PRIMARY_LANGUAGE:str
     class Config:
         env_file = ".env"
         

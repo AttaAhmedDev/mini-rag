@@ -44,6 +44,16 @@ class ChunkModel(BaseDataModel):
             return None
         return DataChunk(**result)
     
+    async def get_chunks_by_project_id(self,project_id:ObjectId,page_no:int=1,page_size:int=50):
+        
+        #find return a cursor object from mongodb, to_list convert the cursor to a list
+        result = await self.collection.find({"chunk_project_id":project_id}).skip(
+            (page_no-1) * page_size).limit(page_size).to_list(length=None)
+        
+        return [
+            DataChunk(**chunk) for chunk in result
+        ]
+    
     async def insert_chunks(self,chunks:list,batch_size:int=100):
         if batch_size <= 0 :
             raise ValueError("Batch size must be greater than 0")
@@ -82,5 +92,3 @@ class ChunkModel(BaseDataModel):
         result = await self.collection.delete_many({
             "chunk_project_id":project_id
         })
-        
-        # return result.deleted_count

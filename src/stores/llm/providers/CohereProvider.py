@@ -17,6 +17,8 @@ class CohereProvider(LLMInterface):
         self.embedding_model_id = None
         self.embedding_size = None
         
+        self.enums = CohereEnums
+        
         self.client = cohere.Client(api_key=self.api_key)
         self.logger = logging.getLogger(__name__)
         
@@ -67,7 +69,7 @@ class CohereProvider(LLMInterface):
             self.logger.error("Embedding model not initialized")
             return None
         
-        input_type = DocumentTypeEnum.DOCUMENT.value if document_type == DocumentTypeEnum.DOCUMENT.value else DocumentTypeEnum.QUERY.value
+        input_type = CohereEnums.DOCUMENT.value if document_type == DocumentTypeEnum.DOCUMENT.value else CohereEnums.QUERY.value
         
         response = self.client.embed(
             model=self.embedding_model_id,

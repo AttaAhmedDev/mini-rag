@@ -19,6 +19,8 @@ class OpenaiProvider(LLMInterface):
         self.embedding_model_id = None
         self.embedding_size = None
         
+        self.enums = OpenaiEnums
+        
         self.client = OpenAI(api_key=self.api_key, base_url=self.api_url or None)
         
         self.logger = logging.getLogger(__name__)
